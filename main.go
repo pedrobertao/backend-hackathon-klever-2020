@@ -8,6 +8,8 @@ import (
 	"github.com/gin-gonic/gin"
 	_ "github.com/heroku/x/hmetrics/onload"
 	"github.com/joho/godotenv"
+	"github.com/pedrobertao/backend-hackathon-klever-2020/models"
+	"github.com/pedrobertao/backend-hackathon-klever-2020/sms"
 )
 
 func main() {
@@ -31,4 +33,10 @@ func main() {
 	})
 
 	router.Run(":" + port)
+
+	sms.SendSMS(models.SMS{
+		To:   "+5585999263009",
+		From: "+12517149048",
+		Body: "You have received 1 BTC.",
+	})
 }
