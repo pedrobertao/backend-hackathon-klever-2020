@@ -1,12 +1,31 @@
 package database
 
 import (
+	"context"
+	"os"
+
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var Database *mongo.Client
+var client *mongo.Client
 
-func connect() {
-	// client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+var UsersCollection *mongo.Collection
 
+// Connect ...
+func Connect() error {
+	cli, err := mongo.NewClient(options.Client().ApplyURI(os.Getenv("MONGO_URL")))
+	if err != nil {
+		return err
+	}
+	UsersCollection = cli.Database("klever-id").Collection("users")
+	client = cli
+	return nil
+}
+
+// Stop ...
+func Stop() {
+	if client != nil {
+		client.Disconnect(context.Background())
+	}
 }
