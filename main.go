@@ -27,12 +27,6 @@ func serve() {
 		log.Fatal("Port not set")
 	}
 	router.Run(":" + port)
-
-	sms.SendSMS(models.SMS{
-		To:   "+5585999263009",
-		From: "+12517149048",
-		Body: "You have received 1 BTC.",
-	})
 }
 
 func main() {
@@ -56,4 +50,10 @@ func main() {
 	zap.L().Info("Database connected")
 
 	serve()
+
+	sms.SendSMS(models.SMS{
+		To:   "+5585999263009",
+		From: "+12517149048",
+		Body: "You have received 1 BTC.",
+	})
 }
