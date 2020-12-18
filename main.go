@@ -47,10 +47,13 @@ func serve() {
 			return
 		}
 
+		phoneActive := u.Phone.Status == models.Active
+
 		c.JSON(http.StatusOK, gin.H{
-			"isActive":  true,
-			"username":  u.Username,
-			"addresses": u.Addresses,
+			"isActive":      true,
+			"isPhoneActive": phoneActive,
+			"username":      u.Username,
+			"addresses":     u.Addresses,
 		})
 	})
 
