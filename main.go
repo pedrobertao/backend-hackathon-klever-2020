@@ -173,11 +173,18 @@ func serve() {
 			})
 			return
 		}
+
 		filter := bson.M{
 			"$or": []bson.M{
 				{"username": userRequest.Username},
-				{"phone.phone": userRequest.Phone},
-				{"email.email": userRequest.Email},
+				{"$and": []bson.M{
+					{"phone.phone": bson.M{"$exists": true}},
+					{"phone.phone": userRequest.Phone},
+				}},
+				{"$and": []bson.M{
+					{"email.email": bson.M{"$exists": true}},
+					{"email.email": userRequest.Phone},
+				}},
 			},
 		}
 
