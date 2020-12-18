@@ -21,9 +21,9 @@ import (
 func serve() {
 	router := gin.New()
 
-	router.GET("/user/:username", func(c *gin.Context) {
+	router.GET("/user/:address", func(c *gin.Context) {
 		var getRequest struct {
-			Username string `json:"username" uri:"username" binding:"required"`
+			Address string `json:"address" uri:"address" binding:"required,min=5,max=200"`
 		}
 		if err := c.ShouldBindUri(&getRequest); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -32,24 +32,25 @@ func serve() {
 			return
 		}
 
-		filter := bson.M{"username": getRequest.Username}
+		filter := bson.M{"mainAddress": getRequest.Address}
 		options := options.FindOne()
 
 		var u models.User
 		if err := database.UsersCollection.FindOne(c, filter, options).Decode(&u); err != nil {
 			if err == mongo.ErrNoDocuments {
-				c.JSON(http.StatusBadRequest, gin.H{
-					"message": "User not registered",
-				})
+				c.JSON(http.StatusOK, gin.H{"isActive": false})
 				return
 			}
-			c.JSON(http.StatusBadRequest, gin.H{
+			c.JSON(http.StatusInternalServerError, gin.H{
 				"message": err.Error(),
 			})
 			return
 		}
 
-		c.JSON(http.StatusOK, u)
+		c.JSON(http.StatusOK, gin.H{
+			"isActive":  true,
+			"addresses": u.Addresses,
+		})
 	})
 
 	router.GET("/user", func(c *gin.Context) {
@@ -83,7 +84,7 @@ func serve() {
 				c.JSON(http.StatusBadRequest, gin.H{"message": "User not found"})
 				return
 			}
-			c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{
@@ -113,7 +114,7 @@ func serve() {
 				})
 				return
 			}
-			c.JSON(http.StatusBadRequest, gin.H{
+			c.JSON(http.StatusInternalServerError, gin.H{
 				"message": err.Error(),
 			})
 			return
@@ -130,7 +131,7 @@ func serve() {
 		if phoneVerification.Code != "" {
 			err := sms.VerifyCodeSMS(phoneToVerify, phoneVerification.Code)
 			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{
+				c.JSON(http.StatusInternalServerError, gin.H{
 					"message": err.Error(),
 				})
 				return
@@ -150,7 +151,7 @@ func serve() {
 		}
 
 		if err := sms.SendVerifySMS(phoneToVerify); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 			return
 		}
 
@@ -250,7 +251,7 @@ func serve() {
 			Body: fmt.Sprintf("You have received %f %s from %s",
 				smsRequest.Amount, smsRequest.Coin, smsRequest.From),
 		}); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
+			c.JSON(http.StatusInternalServerError, gin.H{
 				"message": err.Error(),
 			})
 			return
