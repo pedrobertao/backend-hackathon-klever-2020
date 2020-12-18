@@ -136,14 +136,30 @@ func serve() {
 			})
 			return
 		}
-		_, err := database.UsersCollection.InsertOne(c, userRequest)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"message": err.Error(),
-			})
-			return
+		filter := bson.M{
+			"$or": []bson.M{
+				{"username": userRequest.Username},
+				{"phone": userRequest.Phone},
+				{"email": userRequest.Email},
+			},
 		}
-		c.JSON(http.StatusOK, gin.H{"message": "User registered"})
+
+		result := database.UsersCollection.FindOne(c, filter)
+		if err := result.Decode(&userRequest); err != nil {
+			_, err := database.UsersCollection.InsertOne(c, userRequest)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": err.Error(),
+				})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"message": "User registered"})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "User Already Exists",
+			})
+		}
+		return
 	})
 
 	router.POST("/sms/transaction", func(c *gin.Context) {
