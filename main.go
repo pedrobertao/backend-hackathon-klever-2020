@@ -64,6 +64,47 @@ func serve() {
 
 		c.JSON(http.StatusOK, u)
 	})
+
+	router.POST("/user/phone", func(c *gin.Context) {
+		var phoneVerification struct {
+			Phone string `json:"phone" uri:"phone" binding:"required"`
+			Code  string `json:"code" uri:"code" binding:""`
+		}
+
+		if err := c.ShouldBindJSON(&phoneVerification); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": err.Error(),
+			})
+			return
+		}
+
+		if phoneVerification.Code != "" {
+			err := sms.VerifyCodeSMS(phoneVerification.Phone, phoneVerification.Code)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": err.Error(),
+				})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Phone verified",
+			})
+			return
+		}
+
+		err := sms.SendVerifySMS(phoneVerification.Phone)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": err.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Verification code sent",
+		})
+		return
+	})
+
 	router.PUT("/user", func(c *gin.Context) {
 		var userRequest User
 		if err := c.ShouldBindJSON(&userRequest); err != nil {
@@ -117,10 +158,9 @@ func serve() {
 			return
 		}
 
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "Text sent",
-		})
+		c.JSON(http.StatusOK, gin.H{"message": "Text sent"})
 	})
+
 	router.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status": "Klever ID is live",
@@ -159,6 +199,10 @@ func main() {
 	}
 	defer database.Stop()
 	zap.L().Info("Database connected")
+
+	if err := sms.Config(); err != nil {
+		zap.L().Fatal("Error loading SMS config")
+	}
 
 	serve()
 }
