@@ -49,6 +49,7 @@ func serve() {
 
 		c.JSON(http.StatusOK, gin.H{
 			"isActive":  true,
+			"username":  u.Username,
 			"addresses": u.Addresses,
 		})
 	})
