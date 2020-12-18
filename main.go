@@ -17,20 +17,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-type User struct {
-	MainAddress string `bson:"mainAddress" json:"mainAddress" binding:"required"`
-	Username    string `bson:"username" json:"username" binding:"required"`
-	Email       string `bson:"email" json:"email" binding:"required"`
-	Phone       string `bson:"phone" json:"phone" binding:"required"`
-}
-
-type SMS struct {
-	From   string  `json:"from" binding:"required"`
-	To     string  `json:"to" binding:"required"`
-	Amount float64 `json:"amount" binding:"required"`
-	Coin   string  `json:"coin" binding:"required"`
-}
-
 func serve() {
 	router := gin.New()
 
@@ -48,7 +34,7 @@ func serve() {
 		filter := bson.M{"username": getRequest.Username}
 		options := options.FindOne()
 
-		var u User
+		var u models.User
 		if err := database.UsersCollection.FindOne(c, filter, options).Decode(&u); err != nil {
 			if err == mongo.ErrNoDocuments {
 				c.JSON(http.StatusBadRequest, gin.H{
@@ -64,8 +50,45 @@ func serve() {
 
 		c.JSON(http.StatusOK, u)
 	})
+
+	router.GET("/user", func(c *gin.Context) {
+		var getRequest struct {
+			Search string `json:"search" form:"search" binding:""`
+		}
+		if err := c.ShouldBindQuery(&getRequest); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": err.Error(),
+			})
+			return
+		}
+
+		filter := bson.M{
+			"$or": []bson.M{
+				{"username": getRequest.Search},
+				{"phone": getRequest.Search},
+				{"email": getRequest.Search},
+			},
+		}
+		options := options.FindOne()
+		var u models.User
+		if err := database.UsersCollection.FindOne(c, filter, options).Decode(&u); err != nil {
+			if err == mongo.ErrNoDocuments {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": "User not registered",
+				})
+				return
+			}
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, u)
+	})
+
 	router.PUT("/user", func(c *gin.Context) {
-		var userRequest User
+		var userRequest models.User
 		if err := c.ShouldBindJSON(&userRequest); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": err.Error(),
@@ -83,7 +106,7 @@ func serve() {
 	})
 
 	router.POST("/sms/transaction", func(c *gin.Context) {
-		var smsRequest SMS
+		var smsRequest models.SMSRequest
 		if err := c.ShouldBindJSON(&smsRequest); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": err.Error(),
@@ -94,9 +117,9 @@ func serve() {
 		phone := ""
 		// TODO - Retrieve from DATABASE
 		if smsRequest.To == "bertao" {
-			phone = "+5531996139388"
+			phone = "+" + "5531996139388"
 		} else if smsRequest.To == "roney" {
-			phone = "+5585999263009"
+			phone = "+" + "5585999263009"
 		} else {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "Username not found",
@@ -107,7 +130,7 @@ func serve() {
 		// TODO - Need to check from
 		if err := sms.SendSMS(models.SMS{
 			To:   phone,
-			From: "+12517149048",
+			From: "+18058645005",
 			Body: fmt.Sprintf("You have received %f %s from %s",
 				smsRequest.Amount, smsRequest.Coin, smsRequest.From),
 		}); err != nil {
@@ -117,9 +140,7 @@ func serve() {
 			return
 		}
 
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "Text sent",
-		})
+		c.JSON(http.StatusOK, gin.H{"message": "Text sent"})
 	})
 	router.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
@@ -162,9 +183,9 @@ func main() {
 
 	serve()
 
-	sms.SendSMS(models.SMS{
-		To:   "+5585999263009",
-		From: "+12517149048",
-		Body: "You have received 1 BTC.",
-	})
+	//sms.SendSMS(models.SMS{
+	//To:   "+5585999263009",
+	//From: "+18058645005",
+	//Body: "You have received 1 BTC.",
+	//})
 }
