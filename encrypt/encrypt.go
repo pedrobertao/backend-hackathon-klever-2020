@@ -4,7 +4,9 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/md5"
+	"crypto/rand"
 	"encoding/hex"
+	"io"
 )
 
 func createHash(key string) string {
@@ -20,9 +22,9 @@ func Encrypt(data []byte, passphrase string) ([]byte, error) {
 		return nil, err
 	}
 	nonce := make([]byte, gcm.NonceSize())
-	// if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
-	// 	return nil, err
-	// }
+	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, err
+	}
 	ciphertext := gcm.Seal(nonce, nonce, data, nil)
 	return ciphertext, nil
 }
@@ -39,6 +41,7 @@ func Decrypt(data []byte, passphrase string) ([]byte, error) {
 	}
 	nonceSize := gcm.NonceSize()
 	nonce, ciphertext := data[:nonceSize], data[nonceSize:]
+
 	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
 		return nil, err
