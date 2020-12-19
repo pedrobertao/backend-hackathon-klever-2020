@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -259,13 +260,16 @@ func serve() {
 			})
 			return
 		}
-
-		phone := ""
-		// TODO - Retrieve from DATABASE
-		if smsRequest.To == "bertao" {
-			phone = "+" + "5531996139388"
-		} else if smsRequest.To == "roney" {
-			phone = "+" + "5585999263009"
+		var user models.User
+		if smsRequest.To == user.Username {
+			data, err := encrypt.Decrypt([]byte(user.Phone.Phone), os.Getenv("PASSPHRASE"))
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": err.Error(),
+				})
+				return
+			}
+			json.Unmarshal(data, &user.Phone.Phone)
 		} else {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "Username not found",
@@ -273,9 +277,8 @@ func serve() {
 			return
 		}
 
-		// TODO - Need to check from
 		if err := sms.SendSMS(models.SMS{
-			To:   phone,
+			To:   "+" + user.Phone.Phone,
 			From: "+18058645005",
 			Body: fmt.Sprintf("You have received %f %s from %s",
 				smsRequest.Amount, smsRequest.Coin, smsRequest.From),
@@ -334,9 +337,4 @@ func main() {
 
 	serve()
 
-	//sms.SendSMS(models.SMS{
-	//To:   "+5585999263009",
-	//From: "+18058645005",
-	//Body: "You have received 1 BTC.",
-	//})
 }
