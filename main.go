@@ -63,6 +63,14 @@ func serve() {
 			return
 		}
 
+		// data, err := encrypt.Encrypt([]byte(getRequest.Search), os.Getenv("PASSPHRASE"))
+		// if err != nil {
+		// 	c.JSON(http.StatusBadRequest, gin.H{
+		// 		"message": err.Error(),
+		// 	})
+		// 	return
+		// }
+
 		filter := bson.M{
 			"$or": []bson.M{
 				{"username": getRequest.Search},
@@ -173,6 +181,22 @@ func serve() {
 			})
 			return
 		}
+
+		// phone, err := encrypt.Encrypt([]byte(userRequest.Phone), os.Getenv("PASSPHRASE"))
+		// if err != nil {
+		// 	c.JSON(http.StatusBadRequest, gin.H{
+		// 		"message": err.Error(),
+		// 	})
+		// 	return
+		// }
+		// email, err := encrypt.Encrypt([]byte(userRequest.Email), os.Getenv("PASSPHRASE"))
+		// if err != nil {
+		// 	c.JSON(http.StatusBadRequest, gin.H{
+		// 		"message": err.Error(),
+		// 	})
+		// 	return
+		// }
+
 		filter := bson.M{
 			"$or": []bson.M{
 				{"username": userRequest.Username},
