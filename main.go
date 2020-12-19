@@ -1,8 +1,7 @@
 package main
 
 import (
-	"encoding/hex"
-	"encoding/json"
+	b64 "encoding/base64"
 	"fmt"
 	"net/http"
 	"os"
@@ -12,7 +11,6 @@ import (
 	_ "github.com/heroku/x/hmetrics/onload"
 	"github.com/joho/godotenv"
 	"github.com/pedrobertao/backend-hackathon-klever-2020/database"
-	"github.com/pedrobertao/backend-hackathon-klever-2020/encrypt"
 	"github.com/pedrobertao/backend-hackathon-klever-2020/models"
 	"github.com/pedrobertao/backend-hackathon-klever-2020/sms"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -71,23 +69,25 @@ func serve() {
 			return
 		}
 
-		data, err := encrypt.Encrypt([]byte(userRequest.Search), os.Getenv("PASSPHRASE"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"message": err.Error(),
-			})
-			return
-		}
+		// data, err := encrypt.Encrypt([]byte(userRequest.Search), os.Getenv("PASSPHRASE"))
+		// if err != nil {
+		// 	c.JSON(http.StatusBadRequest, gin.H{
+		// 		"message": err.Error(),
+		// 	})
+		// 	return
+		// }
+
+		data := b64.StdEncoding.WithPadding(b64.NoPadding).EncodeToString([]byte(userRequest.Search))
 
 		filter := bson.M{
 			"$or": []bson.M{
 				{"username": userRequest.Search},
 				{"$and": []bson.M{
-					{"phone.phone": hex.EncodeToString(data)},
+					{"phone.phone": data},
 					{"phone.status": models.Active},
 				}},
 				{"$and": []bson.M{
-					{"email.email": hex.EncodeToString(data)},
+					{"email.email": data},
 					{"email.status": models.Active},
 				}},
 			},
@@ -190,31 +190,33 @@ func serve() {
 			return
 		}
 
-		phone, err := encrypt.Encrypt([]byte(userRequest.Phone), os.Getenv("PASSPHRASE"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"message": err.Error(),
-			})
-			return
-		}
-		email, err := encrypt.Encrypt([]byte(userRequest.Email), os.Getenv("PASSPHRASE"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"message": err.Error(),
-			})
-			return
-		}
+		// phone, err := encrypt.Encrypt([]byte(userRequest.Phone), os.Getenv("PASSPHRASE"))
+		// if err != nil {
+		// 	c.JSON(http.StatusBadRequest, gin.H{
+		// 		"message": err.Error(),
+		// 	})
+		// 	return
+		// }
+		// email, err := encrypt.Encrypt([]byte(userRequest.Email), os.Getenv("PASSPHRASE"))
+		// if err != nil {
+		// 	c.JSON(http.StatusBadRequest, gin.H{
+		// 		"message": err.Error(),
+		// 	})
+		// 	return
+		// }
+		phone := b64.StdEncoding.WithPadding(b64.NoPadding).EncodeToString([]byte(userRequest.Phone))
+		email := b64.StdEncoding.WithPadding(b64.NoPadding).EncodeToString([]byte(userRequest.Email))
 
 		filter := bson.M{
 			"$or": []bson.M{
 				{"username": userRequest.Username},
 				{"$and": []bson.M{
 					{"phone.phone": bson.M{"$exists": true}},
-					{"phone.phone": hex.EncodeToString(phone)},
+					{"phone.phone": phone},
 				}},
 				{"$and": []bson.M{
 					{"email.email": bson.M{"$exists": true}},
-					{"email.email": hex.EncodeToString(email)},
+					{"email.email": email},
 				}},
 			},
 		}
@@ -227,11 +229,11 @@ func serve() {
 					MainAddress: userRequest.MainAddress,
 					Username:    userRequest.Username,
 					Email: models.UserEmail{
-						Email:  hex.EncodeToString(email),
+						Email:  email,
 						Status: models.Inactive,
 					},
 					Phone: models.UserPhone{
-						Phone:  hex.EncodeToString(phone),
+						Phone:  phone,
 						Status: models.Inactive,
 					},
 					UpdatedAt: time.Now(),
@@ -260,25 +262,38 @@ func serve() {
 			})
 			return
 		}
+
+		filter := bson.M{"username": smsRequest.To}
+		options := options.FindOne()
 		var user models.User
-		if smsRequest.To == user.Username {
-			data, err := encrypt.Decrypt([]byte(user.Phone.Phone), os.Getenv("PASSPHRASE"))
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{
-					"message": err.Error(),
-				})
+		if err := database.UsersCollection.FindOne(c, filter, options).Decode(&user); err != nil {
+			if err == mongo.ErrNoDocuments {
+				c.JSON(http.StatusBadRequest, gin.H{"message": "User not found"})
 				return
 			}
-			json.Unmarshal(data, &user.Phone.Phone)
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "Username not found",
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": err.Error(),
 			})
 			return
 		}
+		// data, err := encrypt.Decrypt([]byte(user.Phone.Phone), os.Getenv("PASSPHRASE"))
+		// if err != nil {
+		// 	c.JSON(http.StatusBadRequest, gin.H{
+		// 		"message": err.Error(),
+		// 	})
+		// 	return
+		// }
+		phone, err := b64.StdEncoding.WithPadding(b64.NoPadding).DecodeString(user.Phone.Phone)
+		fmt.Println(string(phone))
+		if err != nil {
 
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": err.Error(),
+			})
+			return
+		}
 		if err := sms.SendSMS(models.SMS{
-			To:   "+" + user.Phone.Phone,
+			To:   "+" + string(phone),
 			From: "+18058645005",
 			Body: fmt.Sprintf("You have received %f %s from %s",
 				smsRequest.Amount, smsRequest.Coin, smsRequest.From),
@@ -288,7 +303,6 @@ func serve() {
 			})
 			return
 		}
-
 		c.JSON(http.StatusOK, gin.H{"message": "Text sent"})
 	})
 
