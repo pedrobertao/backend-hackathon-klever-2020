@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"os"
@@ -10,6 +11,7 @@ import (
 	_ "github.com/heroku/x/hmetrics/onload"
 	"github.com/joho/godotenv"
 	"github.com/pedrobertao/backend-hackathon-klever-2020/database"
+	"github.com/pedrobertao/backend-hackathon-klever-2020/encrypt"
 	"github.com/pedrobertao/backend-hackathon-klever-2020/models"
 	"github.com/pedrobertao/backend-hackathon-klever-2020/sms"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -58,33 +60,33 @@ func serve() {
 	})
 
 	router.GET("/user", func(c *gin.Context) {
-		var getRequest struct {
+		var userRequest struct {
 			Search string `json:"search" form:"search" binding:""`
 		}
-		if err := c.ShouldBindQuery(&getRequest); err != nil {
+		if err := c.ShouldBindQuery(&userRequest); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": err.Error(),
 			})
 			return
 		}
 
-		// data, err := encrypt.Encrypt([]byte(getRequest.Search), os.Getenv("PASSPHRASE"))
-		// if err != nil {
-		// 	c.JSON(http.StatusBadRequest, gin.H{
-		// 		"message": err.Error(),
-		// 	})
-		// 	return
-		// }
+		data, err := encrypt.Encrypt([]byte(userRequest.Search), os.Getenv("PASSPHRASE"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": err.Error(),
+			})
+			return
+		}
 
 		filter := bson.M{
 			"$or": []bson.M{
-				{"username": getRequest.Search},
+				{"username": userRequest.Search},
 				{"$and": []bson.M{
-					{"phone.phone": getRequest.Search},
+					{"phone.phone": hex.EncodeToString(data)},
 					{"phone.status": models.Active},
 				}},
 				{"$and": []bson.M{
-					{"email.email": getRequest.Search},
+					{"email.email": hex.EncodeToString(data)},
 					{"email.status": models.Active},
 				}},
 			},
@@ -187,31 +189,31 @@ func serve() {
 			return
 		}
 
-		// phone, err := encrypt.Encrypt([]byte(userRequest.Phone), os.Getenv("PASSPHRASE"))
-		// if err != nil {
-		// 	c.JSON(http.StatusBadRequest, gin.H{
-		// 		"message": err.Error(),
-		// 	})
-		// 	return
-		// }
-		// email, err := encrypt.Encrypt([]byte(userRequest.Email), os.Getenv("PASSPHRASE"))
-		// if err != nil {
-		// 	c.JSON(http.StatusBadRequest, gin.H{
-		// 		"message": err.Error(),
-		// 	})
-		// 	return
-		// }
+		phone, err := encrypt.Encrypt([]byte(userRequest.Phone), os.Getenv("PASSPHRASE"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": err.Error(),
+			})
+			return
+		}
+		email, err := encrypt.Encrypt([]byte(userRequest.Email), os.Getenv("PASSPHRASE"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": err.Error(),
+			})
+			return
+		}
 
 		filter := bson.M{
 			"$or": []bson.M{
 				{"username": userRequest.Username},
 				{"$and": []bson.M{
 					{"phone.phone": bson.M{"$exists": true}},
-					{"phone.phone": userRequest.Phone},
+					{"phone.phone": hex.EncodeToString(phone)},
 				}},
 				{"$and": []bson.M{
 					{"email.email": bson.M{"$exists": true}},
-					{"email.email": userRequest.Phone},
+					{"email.email": hex.EncodeToString(email)},
 				}},
 			},
 		}
@@ -224,11 +226,11 @@ func serve() {
 					MainAddress: userRequest.MainAddress,
 					Username:    userRequest.Username,
 					Email: models.UserEmail{
-						Email:  userRequest.Email,
+						Email:  hex.EncodeToString(email),
 						Status: models.Inactive,
 					},
 					Phone: models.UserPhone{
-						Phone:  userRequest.Phone,
+						Phone:  hex.EncodeToString(phone),
 						Status: models.Inactive,
 					},
 					UpdatedAt: time.Now(),
